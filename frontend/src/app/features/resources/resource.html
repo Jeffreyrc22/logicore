@@ -1,0 +1,395 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">CONNECTED WORKSPACE</span>
+    <h1>{{title}}<span class="orange">.</span></h1>
+    <p>{{subtitle}}</p>
+  </div>
+  @if(canEdit()){<button lcButton (click)="open()">
+    <lc-icon name="plus" />{{kind==='documents'?'Upload document':'New
+    '+(kind==='users'?'team
+    member':kind==='inventory'?'item':kind.slice(0,-1))}}</button
+  >}
+</div>
+@if(toast()){
+<div class="toast" role="status"><lc-icon name="check" />{{toast()}}</div>
+} @if(error()){
+<div class="alert error" role="alert">{{error()}}</div>
+} @if(kind==='documents'){
+<div class="document-banner">
+  <lc-icon name="file" />
+  <div>
+    <h2>Everything in its place.</h2>
+    <p>
+      Private documents, connected to authorized operations. PDF, images and
+      text · up to 10 MB.
+    </p>
+  </div>
+  <span class="subtle-badge">SECURE ACCESS</span>
+</div>
+}
+<div class="panel data-panel">
+  <div class="toolbar">
+    <div class="search-field">
+      <lc-icon name="search" /><input
+        aria-label="Search records"
+        placeholder="Search records…"
+        [(ngModel)]="q"
+        (keyup.enter)="filter()"
+      /><button lcButton variant="ghost" (click)="filter()">Search</button>
+    </div>
+    <div class="filters">
+      @if(kind==='operations'){<select
+        aria-label="Filter status"
+        [(ngModel)]="status"
+        (change)="filter()"
+      >
+        <option value="">All statuses</option>
+        @for(s of
+        ['DRAFT','PENDING','IN_PROGRESS','IN_TRANSIT','DELIVERED','COMPLETED','CANCELLED'];track
+        s){
+        <option [value]="s">{{s.replaceAll('_',' ')}}</option>
+        }</select
+      >}@if(kind==='documents'){<select
+        aria-label="Filter document type"
+        [(ngModel)]="type"
+        (change)="filter()"
+      >
+        <option value="">All document types</option>
+        @for(t of
+        ['INVOICE','SHIPPING_DOCUMENT','DELIVERY_RECEIPT','INVENTORY_REPORT','CONTRACT','OTHER'];track
+        t){
+        <option [value]="t">{{t.replaceAll('_',' ')}}</option>
+        }</select
+      ><select
+        aria-label="Filter document status"
+        [(ngModel)]="status"
+        (change)="filter()"
+      >
+        <option value="">All statuses</option>
+        <option>ACTIVE</option>
+        <option>ARCHIVED</option></select
+      >}@if(kind==='inventory'){<label class="inline-check"
+        ><input type="checkbox" [(ngModel)]="low" (change)="filter()" /> Low
+        stock only</label
+      >}<span class="record-count">{{total()}} records</span>
+    </div>
+  </div>
+  @if(busy()){<lc-loading />}@else if(!rows().length){<lc-empty
+    [title]="q||status||type?'No matching records':'Your '+title.toLowerCase()+' start here'"
+    description="Add a record or adjust your filters to continue."
+  />}@else{
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          @for(c of columns;track c.key){
+          <th>{{c.label}}</th>
+          }@if(kind!=='audit'){
+          <th class="actions-column">Actions</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for(row of rows();track row.id){
+        <tr>
+          @for(c of columns;track c.key){
+          <td>
+            @if(c.key==='status'||c.key==='role'){<lc-badge
+              [value]="row[c.key]"
+            />}@else if(c.key==='active'){<span
+              class="status-dot"
+              [class.inactive]="!row.active"
+            ></span
+            >{{cell(row,c.key)}}}@else if(c.key==='quantity'){<strong
+              [class.warning]="row.quantity<=row.minimumStock"
+              >{{row.quantity}}</strong
+            >}@else{<span [class.cell-main]="c.key===columns[0].key"
+              >{{cell(row,c.key)}}</span
+            >}
+          </td>
+          }@if(kind!=='audit'){
+          <td>
+            <div class="row-actions">
+              <button
+                lcButton
+                variant="ghost"
+                (click)="view(row)"
+                [attr.aria-label]="'View '+(row.reference||row.name||row.filename)"
+              >
+                View</button
+              >@if(canEdit()){<button
+                lcButton
+                variant="ghost"
+                (click)="open(row)"
+                [attr.aria-label]="'Edit '+(row.reference||row.name||row.filename)"
+              >
+                Edit</button
+              >}@if(kind==='documents'){<a
+                lcButton
+                variant="icon"
+                [href]="'/api/v1/documents/'+row.id+'/download'"
+                aria-label="Download document"
+                ><lc-icon name="download" /></a
+              >}@if(kind==='inventory'){<button
+                lcButton
+                variant="secondary"
+                (click)="movement.set(row);error.set('')"
+              >
+                Move stock</button
+              >}
+            </div>
+          </td>
+          }
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  }
+  <div class="pagination">
+    <span>Page {{page+1}} of {{pages()||1}}</span>
+    <div>
+      <button
+        lcButton
+        variant="secondary"
+        [disabled]="page<=0||busy()"
+        (click)="paginate(-1)"
+      >
+        Previous</button
+      ><button
+        lcButton
+        variant="secondary"
+        [disabled]="page+1>=pages()||busy()"
+        (click)="paginate(1)"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>
+@if(dialog()){
+<div class="modal-backdrop" (keydown.escape)="!saving()&&dialog.set(false)">
+  <section
+    lcDialog
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="editor-title"
+  >
+    <header>
+      <div>
+        <span class="eyebrow">{{title}}</span>
+        <h2 id="editor-title">
+          {{selected()?'Edit record':kind==='documents'?'Upload a
+          document':'Create a record'}}
+        </h2>
+      </div>
+      <button
+        lcButton
+        variant="icon"
+        aria-label="Close dialog"
+        [disabled]="saving()"
+        (click)="dialog.set(false)"
+      >
+        <lc-icon name="close" />
+      </button>
+    </header>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        @for(f of fields;track f.key){<label
+          [class.wide]="f.type==='textarea'"
+          [class.inline-check]="f.type==='checkbox'"
+          >{{f.label}}@if(f.options){<select [formControlName]="f.key">
+            <option value="">Choose an option</option>
+            @for(o of f.options;track o.value){
+            <option [ngValue]="o.value">{{o.label}}</option>
+            }</select
+          >}@else if(f.type==='textarea'){<textarea
+            [formControlName]="f.key"
+            rows="3"
+            maxlength="2000"
+          ></textarea
+          >}@else{<input
+            [type]="f.type||'text'"
+            [formControlName]="f.key"
+            [attr.min]="f.type==='number'?0:null"
+            [attr.autocomplete]="f.type==='password'?'new-password':null"
+          />}@if(form.get(f.key)?.invalid&&form.get(f.key)?.touched){<small
+            class="field-error"
+            >Check this field.</small
+          >}</label
+        >}
+      </div>
+      @if(kind==='documents'&&!selected()){<label class="upload-field"
+        ><lc-icon name="file" />Choose a file<input
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg,.txt"
+          (change)="pickFile($event)" /></label
+      >}@if(kind==='users'){
+      <p class="muted small">
+        Use at least 12 characters. Share initial credentials privately. Access
+        changes revoke existing sessions.
+      </p>
+      }@if(error()){
+      <p class="alert error" role="alert">{{error()}}</p>
+      }
+      <div class="modal-actions">
+        <button
+          lcButton
+          variant="secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="dialog.set(false)"
+        >
+          Cancel</button
+        ><button
+          lcButton
+          type="submit"
+          [disabled]="saving()||form.invalid"
+          [attr.aria-busy]="saving()"
+        >
+          {{saving()?'Saving…':kind==='documents'&&!selected()?'Upload
+          document':'Save record'}}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+} @if(detail()){
+<div class="modal-backdrop" (keydown.escape)="detail.set(null)">
+  <section
+    lcDialog
+    class="modal detail-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="detail-title"
+  >
+    <header>
+      <div>
+        <span class="eyebrow">RECORD DETAILS</span>
+        <h2 id="detail-title">
+          {{detail().reference||detail().name||detail().filename}}
+        </h2>
+      </div>
+      <button
+        lcButton
+        variant="icon"
+        aria-label="Close details"
+        (click)="detail.set(null)"
+      >
+        <lc-icon name="close" />
+      </button>
+    </header>
+    <dl class="detail-grid">
+      @for(c of columns;track c.key){
+      <div>
+        <dt>{{c.label}}</dt>
+        <dd>{{cell(detail(),c.key)}}</dd>
+      </div>
+      }
+      <div>
+        <dt>Description</dt>
+        <dd>{{detail().description||'—'}}</dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>{{detail().updatedAt}}</dd>
+      </div>
+    </dl>
+    @if(kind==='operations'){<label
+      >Next status<select (change)="changeStatus(detail(),$event)">
+        <option value="">Select a valid next step</option>
+        @for(s of next(detail());track s){
+        <option [value]="s">{{s.replaceAll('_',' ')}}</option>
+        }
+      </select></label
+    >
+    <h3>Associated documents</h3>
+    @for(d of associatedDocs();track d.id){<a
+      class="document-link"
+      [href]="'/api/v1/documents/'+d.id+'/download'"
+      ><lc-icon name="file" />{{d.filename}}<lc-icon name="download" /></a
+    >}@if(!associatedDocs().length){
+    <p class="muted">No documents attached yet.</p>
+    }}@if(kind==='operations'||kind==='inventory'){
+    <h3>History</h3>
+    @for(h of history();track h.id){
+    <div class="activity">
+      <span class="activity-dot"></span>
+      <div>
+        <strong>{{h.event||'Stock movement: '+h.delta}}</strong>
+        <p>{{h.detail||h.reason}}</p>
+        <small>{{h.createdAt}}</small>
+      </div>
+    </div>
+    }}@if(kind==='documents'){<a
+      lcButton
+      [href]="'/api/v1/documents/'+detail().id+'/download'"
+      ><lc-icon name="download" />Download file</a
+    >}
+  </section>
+</div>
+} @if(movement()){
+<div class="modal-backdrop">
+  <section
+    lcDialog
+    class="modal compact"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="movement-title"
+  >
+    <h2 id="movement-title">Move stock</h2>
+    <p>{{movement().name}} · {{movement().quantity}} available</p>
+    <label
+      >Quantity change<input type="number" [(ngModel)]="delta" step="1"
+    /></label>
+    <p class="muted small">Positive for receipts, negative for withdrawals.</p>
+    <label
+      >Reason<textarea [(ngModel)]="reason" maxlength="500"></textarea></label
+    >@if(error()){
+    <p class="alert error">{{error()}}</p>
+    }
+    <div class="modal-actions">
+      <button
+        lcButton
+        variant="secondary"
+        [disabled]="saving()"
+        (click)="movement.set(null)"
+      >
+        Cancel</button
+      ><button lcButton [disabled]="saving()" (click)="saveMovement()">
+        {{saving()?'Recording…':'Record movement'}}
+      </button>
+    </div>
+  </section>
+</div>
+} @if(confirm()){
+<div class="modal-backdrop confirm-layer">
+  <section
+    lcDialog
+    class="modal compact"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="confirm-title"
+  >
+    <h2 id="confirm-title">Confirm status change</h2>
+    <p>{{confirm()!.title}}</p>
+    <p class="muted small">This change is recorded in the operation history.</p>
+    @if(error()){
+    <p class="alert error">{{error()}}</p>
+    }
+    <div class="modal-actions">
+      <button
+        lcButton
+        variant="secondary"
+        [disabled]="saving()"
+        (click)="confirm.set(null)"
+      >
+        Cancel</button
+      ><button lcButton [disabled]="saving()" (click)="confirmAction()">
+        {{saving()?'Updating…':'Confirm change'}}
+      </button>
+    </div>
+  </section>
+</div>
+}
