@@ -1,5 +1,5 @@
 server:
-  port: ${APP_PORT:8090}
+  port: ${PORT:${APP_PORT:8090}}
   servlet:
     session:
       timeout: 30m
@@ -10,6 +10,10 @@ server:
         same-site: lax
 spring:
   datasource:
+    hikari:
+      maximum-pool-size: 4
+      minimum-idle: 0
+      idle-timeout: 60000
     url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:55432/logicore}
     username: ${POSTGRES_USER:logicore}
     password: ${POSTGRES_PASSWORD}

@@ -7,7 +7,7 @@ foreach ($mode in @('app','test')) {
   if (Test-Path -LiteralPath $record) {
     foreach ($entry in @((Get-Content -Raw $record | ConvertFrom-Json))) {
       $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
-      if ($process -and $process.ProcessName -eq 'java' -and $process.StartTime -and $process.StartTime.ToUniversalTime().ToString('o') -eq $entry.started) {
+      if ($process -and $process.ProcessName -eq 'java' -and $process.StartTime -and $process.StartTime.ToUniversalTime() -eq ([datetimeoffset]$entry.started).UtcDateTime) {
         throw "Stop the recorded $mode API with Stop-Local.ps1 (add -TestApi for tests) before building."
       }
     }
@@ -20,4 +20,3 @@ $maven=if(Get-Command mvn.cmd -ErrorAction SilentlyContinue){(Get-Command mvn.cm
 if($LASTEXITCODE -ne 0){throw 'Backend build failed.'}
 npm.cmd --prefix frontend run build
 if($LASTEXITCODE -ne 0){throw 'Frontend build failed.'}
-

@@ -39,6 +39,8 @@ public class SecurityConfig {
           .permitAll()
           .requestMatchers("/swagger-ui/**", "/v3/api-docs/**")
           .hasRole("SUPER_ADMIN")
+          .requestMatchers(org.springframework.http.HttpMethod.GET, "/", "/login", "/recovery", "/reset-password", "/dashboard", "/operations", "/documents", "/inventory", "/customers", "/suppliers", "/users", "/audit", "/reports", "/settings", "/index.html", "/assets/**", "/images/**", "/favicon.ico", "/*.js", "/*.css", "/*.svg", "/*.woff2")
+          .permitAll()
           .anyRequest()
           .authenticated()
       )
