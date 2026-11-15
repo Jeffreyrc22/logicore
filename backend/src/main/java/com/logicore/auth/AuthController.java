@@ -98,7 +98,8 @@ public class AuthController {
     );
     SecurityContextHolder.setContext(context);
     repo.saveContext(context, req, res);
-    u.lastLogin = java.time.Instant.now();
-    return users.save(u);
+    users.recordLogin(u.id, java.time.Instant.now());
+    return users.findById(u.id).orElseThrow();
   }
 }
+
